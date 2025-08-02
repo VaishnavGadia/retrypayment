@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Completing Retry Payment</title>
+  <style>
+    body { display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #fff; text-align: center; }
+    .container { padding: 2rem; }
+    .message { font-size: 1.2rem; color: #333; }
+    .success { color: #22c55e; }
+    .error { color: #ef4444; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2 id="status-heading" class="message">Processing your retry payment...</h2>
+    <p id="status-message" class="message"></p>
+  </div>
+
+  <script>
+    function sendResult(success, message) {
+      const payload = { type: 'VERIFY_RESULT', success, message };
+      if (window.FlutterFlowChannel) {
+        FlutterFlowChannel.postMessage(JSON.stringify(payload));
+      }
+      window.parent?.postMessage(payload, '*');
+    }
+
+    async function handleCompletion() {
+      const heading = document.getElementById("status-heading");
+      const messageEl = document.getElementById("status-message");
+
+      try {
+        const sessionId = new URLSearchParams(window.location.search).get("session_id");
+        if (!sessionId) {
+          throw new Error("Stripe session ID not found in URL.");
+        }
+
+        const res = await fetch("https://jtrenbwpefzevqlkcfly.supabase.co/functions/v1/complete-retry-payment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: sessionId }),
+        });
+
+        const result = await res.json();
+
+        if (!res.ok) {
+          throw new Error(result.error || "Failed to confirm retry order.");
+        }
+
+        heading.textContent = "🎉 Retry Payment Successful!";
+        heading.classList.add("success");
+        messageEl.textContent = "Your payment has been received.";
+        sendResult(true, "Retry payment successful");
+
+      } catch (err) {
+        heading.textContent = "Retry Payment Failed";
+        heading.classList.add("error");
+        messageEl.textContent = err.message;
+        sendResult(false, err.message);
+      }
+    }
+
+    handleCompletion();
+  </script>
+</body>
+</html>
